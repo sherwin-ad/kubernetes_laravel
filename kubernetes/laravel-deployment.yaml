@@ -1,0 +1,96 @@
+# laravel-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-app
+  namespace: default # Or your specific namespace
+  labels:
+    app: laravel
+spec:
+  replicas: 2 # Number of desired application instances (pods)
+  selector:
+    matchLabels:
+      app: laravel
+  template:
+    metadata:
+      labels:
+        app: laravel
+    spec:
+      # Optional: Init Container for Database Migrations
+      # This container runs `php artisan migrate` before the main application container starts.
+      initContainers:
+      - name: migrate
+        image: gcr.io/your-gcp-project-id/your-laravel-apache-app:latest # Your Docker image with Laravel and Apache
+        command: [ "php", "artisan", "migrate", "--force" ] # Run migrations
+        envFrom:
+        - configMapRef:
+            name: laravel-config # Load non-sensitive envs
+        - secretRef:
+            name: laravel-secret # Load sensitive envs
+        # Optional: Volume mount for Cloud SQL Proxy credentials if needed for migrations
+        # - name: cloudsql-instance-credentials
+        #   mountPath: /secrets/cloudsql
+        #   readOnly: true
+
+      containers:
+      - name: laravel # Main application container
+        image: gcr.io/your-gcp-project-id/your-laravel-apache-app:latest # Replace with your actual GCR image path
+        ports:
+        - containerPort: 80 # Apache typically listens on port 80
+        envFrom:
+        - configMapRef:
+            name: laravel-config # Inject environment variables from ConfigMap
+        - secretRef:
+            name: laravel-secret # Inject environment variables from Secret
+        resources:
+          requests:
+            cpu: "100m" # Request 0.1 CPU core
+            memory: "128Mi" # Request 128 MiB of memory
+          limits:
+            cpu: "500m" # Limit to 0.5 CPU core
+            memory: "512Mi" # Limit to 512 MiB of memory
+        # Optional: Health checks for robust deployments
+        livenessProbe:
+          # Checks if the container is still running
+          httpGet:
+            path: /up # Laravel's default health check endpoint
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          # Checks if the container is ready to serve traffic
+          httpGet:
+            path: /up
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 5
+
+      # Optional: Cloud SQL Proxy Sidecar Container
+      # This container establishes a secure connection to your Cloud SQL instance.
+      # The Laravel app then connects to the database via `127.0.0.1:3306` (or 5432 for PostgreSQL).
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.28.0 # Use the latest stable version
+        command:
+        - "/cloud_sql_proxy"
+        # Replace with your Cloud SQL instance connection name: PROJECT_ID:REGION:INSTANCE_NAME
+        - "-instances=your-gcp-project-id:your-region:your-cloud-sql-instance-name=tcp:3306" # For MySQL
+        # - "-instances=your-gcp-project-id:your-region:your-cloud-sql-instance-name=tcp:5432" # For PostgreSQL
+        # Optional: If using a service account key file for authentication
+        # - "-credential_file=/secrets/cloudsql/credentials.json"
+        # Optional: Volume mount for Cloud SQL service account key (if using key file)
+        # volumeMounts:
+        # - name: cloudsql-instance-credentials
+        #   mountPath: /secrets/cloudsql
+        #   readOnly: true
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+      # Optional: Volumes for Cloud SQL Proxy credentials (if using key file)
+      # volumes:
+      # - name: cloudsql-instance-credentials
+      #   secret:
+      #     secretName: cloudsql-instance-credentials # This Secret must contain your service account JSON key

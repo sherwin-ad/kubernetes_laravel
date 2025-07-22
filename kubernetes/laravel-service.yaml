@@ -1,0 +1,16 @@
+# laravel-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: laravel-service
+  namespace: default # Or your specific namespace
+  labels:
+    app: laravel
+spec:
+  selector:
+    app: laravel # Selects pods with the label app: laravel
+  ports:
+  - protocol: TCP
+    port: 80 # The port the service will listen on
+    targetPort: 80 # The port on the container that the service will forward traffic to
+  type: ClusterIP # Internal IP, exposed externally by Ingress
