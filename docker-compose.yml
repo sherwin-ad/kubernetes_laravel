@@ -5,10 +5,10 @@ services:
     # build:
     #   context: .
     #  dockerfile: .docker/Dockerfile
-    image: sherwinowen/laravel-app:1.0
+    image: sherwinowen/laravel-agg:1.0
     container_name: laravel_app
-    volumes:
-      - ./app:/var/www/html
+    #volumes:
+    #  - ./app:/var/www/html
     ports:
       - "80:80"
       - "443:443"
