@@ -1,3 +1,4 @@
+# Use a base image with Apache and PHP-FPM
 FROM php:8.3-apache
 
 # Install system dependencies and PHP extensions
@@ -11,12 +12,8 @@ RUN a2enmod rewrite
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application files to working directory 
+# Copy Laravel application files
 COPY ./agg .
-
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache 
-RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php
@@ -27,15 +24,26 @@ RUN chmod +x /usr/local/bin/composer
 
 RUN composer install
 
+# Run Laravel artisan commands (for initial setup)
 RUN cp .env.example .env
-
 RUN php artisan key:generate
+RUN php artisan config:clear
+RUN php artisan cache:clear
+RUN php artisan view:clear
+RUN php artisan route:clear
+RUN php artisan storage:link
 
-# Copy Apache vhost
-COPY .docker/vhost.conf /etc/apache2/sites-available/000-default.conf
+# Set proper permissions for storage and bootstrap/cache directories
+RUN chown -R www-data:www-data .
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
-# Expose port 80
+# Configure Apache Virtual Host
+COPY docker/apache/vhost.conf /etc/apache2/sites-available/000-default.conf
+RUN a2dissite 000-default
+RUN a2ensite 000-default
+
+# Expose port 80 for the web server
 EXPOSE 80
 
-# Start Apache
 CMD ["apache2-foreground"]

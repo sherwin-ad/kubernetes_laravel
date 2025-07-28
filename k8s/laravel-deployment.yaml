@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: laravel
-        image: us-central1-docker.pkg.dev/dev-staging-337304/laravel-repo/laravel-app:v1
+        image: us-central1-docker.pkg.dev/dev-staging-337304/laravel-repo/laravel-app:v3
         ports:
           - containerPort: 80
         env:
